@@ -59,6 +59,7 @@ jobs:
             ![download](https://img.shields.io/github/downloads/${{ github.repository }}/${{ github.ref_name }}/total?label=Downloads)
       - name: Commit manifest to repo
         run: |
+          git checkout master
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add manifest.json
