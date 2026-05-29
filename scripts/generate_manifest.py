@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+import hashlib
+import json
+import sys
+import os
+from datetime import datetime
+from urllib.request import urlopen
+from urllib.error import HTTPError
+
+MANIFEST_URL = "https://github.com/tardlk/JellyfinProxy/releases/download/manifest/manifest.json"
+
+
+def generate_manifest():
+    return [{
+        "guid": "B5C3E8A1-7D4F-4A2B-9E6C-1F3D8A5B2C7E",
+        "name": "JellyfinProxy",
+        "description": "Jellyfin 网络优化插件：选择性代理、TMDB 替代、强制 IPv4",
+        "overview": "解决刮削元数据时 TMDB / TVDB / FanArt 的网络连通问题",
+        "owner": "tardlk",
+        "category": "General",
+        "imageUrl": "https://raw.githubusercontent.com/tardlk/JellyfinProxy/main/Properties/thumb.png",
+        "versions": []
+    }]
+
+
+def generate_version(filepath, version, changelog):
+    return {
+        "version": f"{version}.0",
+        "changelog": changelog,
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": f"https://github.com/tardlk/JellyfinProxy/releases/download/v{version}/JellyfinProxy_{version}.0.zip",
+        "checksum": md5sum(filepath),
+        "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    }
+
+
+def md5sum(filename):
+    with open(filename, "rb") as f:
+        return hashlib.md5(f.read()).hexdigest()
+
+
+def main():
+    filename = sys.argv[1]
+    tag = sys.argv[2]
+    version = tag.lstrip("v")
+    filepath = os.path.join(os.getcwd(), filename)
+    import subprocess
+    result = subprocess.run(["git", "tag", "-l", "--format=%(contents)", tag, "-l"], stdout=subprocess.PIPE)
+    changelog = result.stdout.decode("utf-8").strip()
+
+    # 读取旧 manifest，不存在则新建
+    try:
+        with urlopen(MANIFEST_URL) as f:
+            manifest = json.load(f)
+    except HTTPError as err:
+        if err.code == 404:
+            manifest = generate_manifest()
+        else:
+            raise
+
+    # 移除旧版本，插入新版本
+    manifest[0]["versions"] = list(filter(lambda x: x["version"] != f"{version}.0", manifest[0]["versions"]))
+    manifest[0]["versions"].insert(0, generate_version(filepath, version, changelog))
+
+    with open("manifest.json", "w") as f:
+        json.dump(manifest, f, indent=2)
+
+
+if __name__ == "__main__":
+    main()
