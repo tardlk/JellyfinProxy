@@ -31,7 +31,7 @@
 ### 方法一：插件仓库安装（推荐）
 
 1. Jellyfin 控制台 → 插件 → 仓库 → 添加
-2. 填入：`https://raw.githubusercontent.com/tardlk/JellyfinProxy/master/manifest.json`
+2. 填入：`https://gh-proxy.com/https://raw.githubusercontent.com/tardlk/JellyfinProxy/master/manifest.json`
 3. 在插件目录找到 **JellyfinProxy**，点击安装
 4. 重启 Jellyfin
 
