@@ -11,7 +11,7 @@
       {
         "version": "1.0.0.0",
         "changelog": "内置本地代理实现 TMDB 改写 + 强制 IPv4",
-        "targetAbi": "10.10.7.0",
+        "targetAbi": "10.8.0.0",
         "sourceUrl": "https://gh-proxy.com/https://github.com/tardlk/JellyfinProxy/releases/download/latest/JellyfinProxy.zip",
         "checksum": "",
         "timestamp": "2026-05-29T00:00:00"
