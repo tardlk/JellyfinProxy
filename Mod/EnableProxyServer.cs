@@ -1,4 +1,5 @@
 using JellyfinProxy.Common;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Net;
 using System.Net.Http;
@@ -39,11 +40,11 @@ namespace JellyfinProxy.Mod
                 HttpClient.DefaultProxy = _selectiveProxy;
                 IsActive = true;
 
-                Plugin.Instance.Logger.LogInformation("Proxy enabled: {Url} for {Count} domains", proxyUrl, _selectiveProxy.DomainCount);
+                Plugin.Log.LogInformation("Proxy enabled: {Url} for {Count} domains", proxyUrl, _selectiveProxy.DomainCount);
             }
             catch (Exception e)
             {
-                Plugin.Instance.Logger.LogError("Failed to apply proxy: {Message}", e.Message);
+                Plugin.Log.LogError("Failed to apply proxy: {Message}", e.Message);
             }
         }
 
@@ -57,11 +58,11 @@ namespace JellyfinProxy.Mod
                 _selectiveProxy = null;
                 IsActive = false;
 
-                Plugin.Instance.Logger.LogInformation("Proxy disabled");
+                Plugin.Log.LogInformation("Proxy disabled");
             }
             catch (Exception e)
             {
-                Plugin.Instance.Logger.LogError("Failed to remove proxy: {Message}", e.Message);
+                Plugin.Log.LogError("Failed to remove proxy: {Message}", e.Message);
             }
         }
     }

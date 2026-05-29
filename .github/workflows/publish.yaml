@@ -38,9 +38,9 @@ jobs:
       - name: Build
         run: |
           dotnet restore ${{ env.project }} --no-cache
-          dotnet publish --nologo --no-restore --configuration=Release --framework=net9.0 -p:Version=${{steps.vars.outputs.VERSION}} ${{ env.project }}
+          dotnet build --nologo --no-restore --configuration=Release -p:Version=${{steps.vars.outputs.VERSION}} ${{ env.project }}
           mkdir -p artifacts
-          zip -j ./artifacts/${{ env.artifact }}_${{steps.vars.outputs.VERSION}}.zip ./bin/Release/net9.0/publish/JellyfinProxy.dll
+          zip -j ./artifacts/${{ env.artifact }}_${{steps.vars.outputs.VERSION}}.zip ./bin/Release/net9.0/JellyfinProxy.dll
       - name: Generate manifest
         run: python3 ./scripts/generate_manifest.py ./artifacts/${{ env.artifact }}_${{steps.vars.outputs.VERSION}}.zip ${GITHUB_REF#refs/*/}
       - name: Publish release

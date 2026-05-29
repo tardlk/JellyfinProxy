@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -43,7 +44,7 @@ namespace JellyfinProxy.Common
                 {
                     var proxyUri = _innerProxy.GetProxy(destination);
                     if (Plugin.Instance.DebugMode)
-                        Plugin.Instance.Logger.LogInformation("Proxy: {Host} → {Proxy}", destination.Host, proxyUri);
+                        Plugin.Log.LogInformation("Proxy: {Host} → {Proxy}", destination.Host, proxyUri);
                     return proxyUri;
                 }
             }

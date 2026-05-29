@@ -21,11 +21,12 @@
         }
         button:hover { background: #43a33d; }
         .toast { position: fixed; bottom: 20px; right: 20px; background: #52b54b; color: #fff; padding: 10px 20px; border-radius: 6px; display: none; }
+        .note { color: #888; font-size: 12px; }
     </style>
 </head>
 <body>
     <h1>🛰 JellyfinProxy</h1>
-    <p class="subtitle">网络优化插件：选择性代理 / TMDB 替代 / 强制 IPv4<br>修改配置后需重启 Jellyfin 生效。</p>
+    <p class="subtitle">HTTP 选择性代理，解决 TMDB / TVDB / FanArt 的网络连通问题<br>修改配置后需重启 Jellyfin 生效。</p>
 
     <section>
         <h2>🌐 代理服务器</h2>
@@ -39,27 +40,8 @@
     </section>
 
     <section>
-        <h2>🔄 替代 TMDB</h2>
-        <label class="chk"><input type="checkbox" id="enableAltTmdb"> 启用替代 TMDB 配置</label>
-        <label>替代 TMDB API 地址
-            <input type="text" id="altTmdbApiUrl" placeholder="https://api.tmdb.org">
-        </label>
-        <label>替代 TMDB 图片地址
-            <input type="text" id="altTmdbImageUrl" placeholder="留空则不改写图片地址">
-        </label>
-    </section>
-
-    <section>
-        <h2>📡 强制 IPv4</h2>
-        <label class="chk"><input type="checkbox" id="enableIPv4Only"> 启用强制 IPv4 连接</label>
-        <label>IPv4 Only 域名列表 <span class="hint">一行一个域名</span>
-            <textarea id="ipv4OnlyDomains" rows="3"></textarea>
-        </label>
-    </section>
-
-    <section>
         <h2>🔧 调试</h2>
-        <label class="chk"><input type="checkbox" id="enableDebugMode"> 调试模式 <span class="hint">输出详细拦截日志</span></label>
+        <label class="chk"><input type="checkbox" id="enableDebugMode"> 调试模式 <span class="hint">输出详细的请求日志到 Jellyfin 日志</span></label>
     </section>
 
     <button onclick="save()">保存配置</button>
@@ -76,11 +58,6 @@
                 $('proxyEnabled').checked = cfg.ProxyEnabled || false;
                 $('proxyUrl').value = cfg.ProxyUrl || '';
                 $('proxyDomains').value = cfg.ProxyDomains || '';
-                $('enableAltTmdb').checked = cfg.EnableAltTmdb || false;
-                $('altTmdbApiUrl').value = cfg.AltTmdbApiUrl || '';
-                $('altTmdbImageUrl').value = cfg.AltTmdbImageUrl || '';
-                $('enableIPv4Only').checked = cfg.EnableIPv4Only || false;
-                $('ipv4OnlyDomains').value = cfg.IPv4OnlyDomains || '';
                 $('enableDebugMode').checked = cfg.EnableDebugMode || false;
                 toggle();
             } catch (e) {
@@ -92,14 +69,9 @@
             var pe = $('proxyEnabled').checked;
             $('proxyUrl').parentElement.classList.toggle('disabled', !pe);
             $('proxyDomains').parentElement.classList.toggle('disabled', !pe);
-            $('altTmdbApiUrl').parentElement.classList.toggle('disabled', !$('enableAltTmdb').checked);
-            $('altTmdbImageUrl').parentElement.classList.toggle('disabled', !$('enableAltTmdb').checked);
-            $('ipv4OnlyDomains').parentElement.classList.toggle('disabled', !$('enableIPv4Only').checked);
         }
 
-        ['proxyEnabled','enableAltTmdb','enableIPv4Only'].forEach(function(id) {
-            $(id).addEventListener('change', toggle);
-        });
+        $('proxyEnabled').addEventListener('change', toggle);
 
         async function save() {
             try {
@@ -107,11 +79,6 @@
                     ProxyEnabled: $('proxyEnabled').checked,
                     ProxyUrl: $('proxyUrl').value.trim(),
                     ProxyDomains: $('proxyDomains').value.trim(),
-                    EnableAltTmdb: $('enableAltTmdb').checked,
-                    AltTmdbApiUrl: $('altTmdbApiUrl').value.trim(),
-                    AltTmdbImageUrl: $('altTmdbImageUrl').value.trim(),
-                    EnableIPv4Only: $('enableIPv4Only').checked,
-                    IPv4OnlyDomains: $('ipv4OnlyDomains').value.trim(),
                     EnableDebugMode: $('enableDebugMode').checked
                 });
                 var t = $('toast');
