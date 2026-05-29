@@ -15,6 +15,8 @@ jobs:
         with:
           dotnet-version: '6.x'
       - name: Restore
-        run: dotnet restore
-      - name: Build
-        run: dotnet build --no-restore -c Release
+        run: dotnet restore JellyfinPlugins.sln
+      - name: Build JellyfinProxy
+        run: dotnet build JellyfinProxy/JellyfinProxy.csproj -c Release --no-restore
+      - name: Build TmdbTuner
+        run: dotnet build TmdbTuner/TmdbTuner.csproj -c Release --no-restore

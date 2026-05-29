@@ -17,9 +17,9 @@ jobs:
           dotnet-version: '6.x'
       - name: Build
         run: |
-          dotnet restore JellyfinProxy.csproj --no-cache
-          dotnet build -c Release --no-restore JellyfinProxy.csproj
-          zip -j JellyfinProxy.zip ./bin/Release/net6.0/JellyfinProxy.dll
+          dotnet restore JellyfinProxy/JellyfinProxy.csproj --no-cache
+          dotnet build JellyfinProxy/JellyfinProxy.csproj -c Release --no-restore
+          zip -j JellyfinProxy.zip ./JellyfinProxy/bin/Release/net6.0/JellyfinProxy.dll
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:

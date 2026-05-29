@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>TmdbTuner</title>
+</head>
+<body>
+    <div id="TmdbTunerConfigPage" data-role="page" class="page type-interior pluginConfigurationPage"
+        data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <div class="verticalSection">
+                    <h2 class="sectionTitle">TmdbTuner</h2>
+                    <p style="color:#888;font-size:13px;">TMDB 刮削优化：自定义 Host、IPv4 强制、代理</p>
+                </div>
+
+                <form id="TmdbTunerConfigForm">
+                    <fieldset class="verticalSection">
+                        <legend><h3>TMDB 服务器</h3></legend>
+                        <div class="inputContainer">
+                            <input is="emby-input" type="text" id="TmdbHost" label="API Host" />
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" type="text" id="TmdbImageHost" label="图片 Host" />
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" type="text" id="TmdbApiKey" label="API Key（留空使用 Jellyfin 内置）" />
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="verticalSection">
+                        <legend><h3>网络</h3></legend>
+                        <div class="checkboxContainer">
+                            <label><input type="checkbox" is="emby-checkbox" id="EnableIPv4Only" /><span>强制 IPv4</span></label>
+                        </div>
+                        <div class="checkboxContainer">
+                            <label><input type="checkbox" is="emby-checkbox" id="EnableProxy" /><span>启用代理</span></label>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" type="text" id="ProxyUrl" label="代理地址" placeholder="http://192.168.10.10:7890" />
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="verticalSection">
+                        <legend><h3>调试</h3></legend>
+                        <div class="checkboxContainer">
+                            <label><input type="checkbox" is="emby-checkbox" id="EnableDebugMode" /><span>调试模式</span></label>
+                        </div>
+                    </fieldset>
+
+                    <button is="emby-button" type="submit" class="raised button-submit block"><span>保存</span></button>
+                </form>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            var Config = { pluginUniqueId: 'C8D3E9A2-6D5F-4C3B-0A7D-2F4E9B6C3D8F' };
+            document.querySelector('#TmdbTunerConfigPage').addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(Config.pluginUniqueId).then(function (c) {
+                    document.querySelector('#TmdbHost').value = c.TmdbHost || '';
+                    document.querySelector('#TmdbImageHost').value = c.TmdbImageHost || '';
+                    document.querySelector('#TmdbApiKey').value = c.TmdbApiKey || '';
+                    document.querySelector('#EnableIPv4Only').checked = c.EnableIPv4Only !== false;
+                    document.querySelector('#EnableProxy').checked = c.EnableProxy || false;
+                    document.querySelector('#ProxyUrl').value = c.ProxyUrl || '';
+                    document.querySelector('#EnableDebugMode').checked = c.EnableDebugMode || false;
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+            document.querySelector('#TmdbTunerConfigForm').addEventListener('submit', function (e) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(Config.pluginUniqueId).then(function (c) {
+                    c.TmdbHost = document.querySelector('#TmdbHost').value.trim();
+                    c.TmdbImageHost = document.querySelector('#TmdbImageHost').value.trim();
+                    c.TmdbApiKey = document.querySelector('#TmdbApiKey').value.trim();
+                    c.EnableIPv4Only = document.querySelector('#EnableIPv4Only').checked;
+                    c.EnableProxy = document.querySelector('#EnableProxy').checked;
+                    c.ProxyUrl = document.querySelector('#ProxyUrl').value.trim();
+                    c.EnableDebugMode = document.querySelector('#EnableDebugMode').checked;
+                    ApiClient.updatePluginConfiguration(Config.pluginUniqueId, c).then(function (r) {
+                        Dashboard.processPluginConfigurationUpdateResult(r);
+                    });
+                });
+                e.preventDefault();
+                return false;
+            });
+        </script>
+    </div>
+</body>
+</html>
