@@ -57,10 +57,11 @@ namespace JellyfinProxy
         public void ApplyConfig(PluginConfiguration config)
         {
             DebugMode = config.EnableDebugMode;
-            var needProxy = config.ProxyEnabled || config.EnableIPv4Only || config.EnableAltTmdb;
+            var needLocalProxy = config.EnableIPv4Only || config.EnableAltTmdb;
 
-            if (needProxy)
+            if (needLocalProxy)
             {
+                // 需要 TMDB 改写或 IPv4 强制 → 起本地代理
                 _localProxy.Configure(
                     config.ProxyEnabled, config.ProxyUrl, config.ProxyDomains,
                     config.EnableIPv4Only, config.IPv4OnlyDomains,
@@ -70,8 +71,23 @@ namespace JellyfinProxy
                 HttpClient.DefaultProxy = new WebProxy("http://127.0.0.1:57891");
                 _localProxy.Start();
             }
+            else if (config.ProxyEnabled && !string.IsNullOrWhiteSpace(config.ProxyUrl))
+            {
+                // 纯代理模式 → 直接用 SelectiveProxy，不起本地代理
+                _localProxy.Stop();
+                if (CommonUtility.TryParseProxyUrl(config.ProxyUrl, out var scheme, out var host, out var port,
+                        out var user, out var pass))
+                {
+                    _savedDefaultProxy = HttpClient.DefaultProxy;
+                    var proxy = new SelectiveProxy($"{scheme}://{host}:{port}", config.ProxyDomains);
+                    if (!string.IsNullOrEmpty(user))
+                        proxy.Credentials = new NetworkCredential(user, pass);
+                    HttpClient.DefaultProxy = proxy;
+                }
+            }
             else
             {
+                // 全关 → 恢复默认
                 _localProxy.Stop();
                 if (_savedDefaultProxy != null)
                     HttpClient.DefaultProxy = _savedDefaultProxy;
