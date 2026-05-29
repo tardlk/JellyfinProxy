@@ -5,7 +5,7 @@
     "description": "Jellyfin 网络优化插件：HTTP 选择代理、TMDB 地址替代、强制 IPv4 连接。解决刮削元数据时 TMDB / TVDB / FanArt 的网络连通问题。",
     "overview": "选择代理 / TMDB 地址替代 / 强制 IPv4。内置本地代理，无需额外软件。",
     "category": "General",
-    "imageUrl": "https://raw.githubusercontent.com/tardlk/JellyfinProxy/master/Properties/thumb.png",
+    "imageUrl": "https://gh-proxy.com/https://raw.githubusercontent.com/tardlk/JellyfinProxy/master/Properties/thumb.png",
     "versions": [
       {
         "version": "1.0.0.0",
