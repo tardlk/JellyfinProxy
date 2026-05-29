@@ -101,15 +101,28 @@ namespace JellyfinProxy.Mod
                 {
                     var reader = new StreamReader(stream, Encoding.ASCII, false, 4096, true);
                     var requestLine = await reader.ReadLineAsync().ConfigureAwait(false);
-                    if (string.IsNullOrEmpty(requestLine)) return;
+
+                    // Always log incoming requests for debugging
+                    Plugin.Log.LogInformation("Proxy recv: {Line}", requestLine ?? "(null)");
+
+                    if (string.IsNullOrEmpty(requestLine))
+                    {
+                        var errResp = Encoding.ASCII.GetBytes("HTTP/1.1 400 Bad Request\r\n\r\n");
+                        await stream.WriteAsync(errResp, 0, errResp.Length, ct).ConfigureAwait(false);
+                        return;
+                    }
 
                     var parts = requestLine.Split(' ');
-                    if (parts.Length < 3) return;
+                    if (parts.Length < 3)
+                    {
+                        var errResp = Encoding.ASCII.GetBytes("HTTP/1.1 400 Bad Request\r\n\r\n");
+                        await stream.WriteAsync(errResp, 0, errResp.Length, ct).ConfigureAwait(false);
+                        return;
+                    }
 
                     var method = parts[0];
                     var target = parts[1];
 
-                    // Read headers (just consume them)
                     string header;
                     while (!string.IsNullOrEmpty(header = await reader.ReadLineAsync().ConfigureAwait(false)))
                     {
@@ -117,16 +130,15 @@ namespace JellyfinProxy.Mod
                     }
 
                     if (method == "CONNECT")
-                    {
                         await HandleConnect(stream, target, ct).ConfigureAwait(false);
-                    }
                     else
-                    {
                         await HandleHttp(stream, method, target, ct).ConfigureAwait(false);
-                    }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Plugin.Log.LogWarning("Proxy error: {Msg}", ex.Message);
+            }
         }
 
         private async Task HandleConnect(NetworkStream clientStream, string target, CancellationToken ct)
