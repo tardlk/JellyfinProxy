@@ -25,26 +25,24 @@ namespace JellyfinProxy
 
         public static ILogger Log { get; private set; }
         public readonly IApplicationHost ApplicationHost;
-        private readonly HttpClientFilter _httpFilter;
+        private readonly LocalProxyServer _localProxy = new LocalProxyServer();
         private IWebProxy _savedDefaultProxy;
+
+        /// <summary>调试模式（热更新同步）</summary>
+        public static bool DebugMode { get; private set; }
 
         public Plugin(
             IApplicationHost applicationHost,
             IApplicationPaths applicationPaths,
             IXmlSerializer xmlSerializer,
-            ILoggerFactory loggerFactory,
-            HttpClientFilter httpFilter)
+            ILoggerFactory loggerFactory)
             : base(applicationPaths, xmlSerializer)
         {
             Instance = this;
             ApplicationHost = applicationHost;
-            _httpFilter = httpFilter;
             Log = loggerFactory.CreateLogger("JellyfinProxy");
 
-            if (Debugger.IsAttached) Log.LogInformation("Debugger attached");
-
             Log.LogInformation("Plugin is getting loaded.");
-
             ApplyConfig(Configuration);
 
             ConfigurationChanged += (_, _) =>
@@ -58,40 +56,36 @@ namespace JellyfinProxy
 
         public void ApplyConfig(PluginConfiguration config)
         {
-            _httpFilter.UpdateConfig(
-                config.EnableIPv4Only, config.IPv4OnlyDomains,
-                config.EnableAltTmdb, config.AltTmdbApiUrl, config.AltTmdbImageUrl,
-                config.EnableDebugMode);
+            DebugMode = config.EnableDebugMode;
+            var needProxy = config.ProxyEnabled || config.EnableIPv4Only || config.EnableAltTmdb;
 
-            // 代理：通过 DefaultProxy + SelectiveProxy 白名单路由
+            if (needProxy)
+            {
+                _localProxy.Configure(
+                    config.ProxyEnabled, config.ProxyUrl, config.ProxyDomains,
+                    config.EnableIPv4Only, config.IPv4OnlyDomains,
+                    config.EnableAltTmdb, config.AltTmdbApiUrl, config.AltTmdbImageUrl);
+
+                _savedDefaultProxy = HttpClient.DefaultProxy;
+                HttpClient.DefaultProxy = new WebProxy("http://127.0.0.1:57891");
+                _localProxy.Start();
+            }
+            else
+            {
+                _localProxy.Stop();
+                if (_savedDefaultProxy != null)
+                    HttpClient.DefaultProxy = _savedDefaultProxy;
+            }
+
             if (config.ProxyEnabled && !string.IsNullOrWhiteSpace(config.ProxyUrl))
-            {
-                if (CommonUtility.TryParseProxyUrl(config.ProxyUrl, out var scheme, out var host, out var port,
-                        out var user, out var pass))
-                {
-                    _savedDefaultProxy = HttpClient.DefaultProxy;
-                    var proxy = new SelectiveProxy($"{scheme}://{host}:{port}", config.ProxyDomains);
-                    if (!string.IsNullOrEmpty(user))
-                        proxy.Credentials = new NetworkCredential(user, pass);
-                    HttpClient.DefaultProxy = proxy;
-
-                    Log.LogInformation("Proxy enabled: {Url}", $"{scheme}://{host}:{port}");
-                }
-            }
-            else if (_savedDefaultProxy != null)
-            {
-                HttpClient.DefaultProxy = _savedDefaultProxy;
-                _savedDefaultProxy = null;
-                Log.LogInformation("Proxy disabled");
-            }
-
+                Log.LogInformation("Proxy enabled for: {Domains}", config.ProxyDomains);
             if (config.EnableIPv4Only)
-                Log.LogInformation("IPv4 force enabled for: {Domains}", config.IPv4OnlyDomains);
+                Log.LogInformation("IPv4 force: {Domains}", config.IPv4OnlyDomains);
             if (config.EnableAltTmdb)
             {
-                Log.LogInformation("TMDB API rewrite: {Url}", config.AltTmdbApiUrl);
+                Log.LogInformation("TMDB API → {Url}", config.AltTmdbApiUrl);
                 if (!string.IsNullOrEmpty(config.AltTmdbImageUrl))
-                    Log.LogInformation("TMDB Image rewrite: {Url}", config.AltTmdbImageUrl);
+                    Log.LogInformation("TMDB Image → {Url}", config.AltTmdbImageUrl);
             }
         }
 
