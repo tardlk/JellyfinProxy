@@ -5,7 +5,7 @@
     <AssemblyName>JellyfinProxy</AssemblyName>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
     <LangVersion>9.0</LangVersion>
   </PropertyGroup>
   <ItemGroup>

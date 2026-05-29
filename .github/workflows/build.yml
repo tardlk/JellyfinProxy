@@ -18,7 +18,7 @@ jobs:
       - name: Restore
         run: dotnet restore
       - name: Build
-        run: dotnet publish -c Release --no-restore
+        run: dotnet build -c Release --no-restore
       - name: Move latest tag
         run: |
           git tag -f latest
@@ -26,7 +26,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: bin/Release/net9.0/publish/JellyfinProxy.dll
+          files: bin/Release/net9.0/JellyfinProxy.dll
           tag_name: latest
           name: JellyfinProxy
           make_latest: true
