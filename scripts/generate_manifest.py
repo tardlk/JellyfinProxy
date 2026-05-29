@@ -7,7 +7,7 @@ from datetime import datetime
 from urllib.request import urlopen
 from urllib.error import HTTPError
 
-MANIFEST_URL = "https://github.com/tardlk/JellyfinProxy/releases/download/manifest/manifest.json"
+MANIFEST_URL = "https://raw.githubusercontent.com/tardlk/JellyfinProxy/master/manifest.json"
 
 
 def generate_manifest():
