@@ -12,7 +12,7 @@
         "version": "1.0.0.0",
         "changelog": "HTTP 选择性代理",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/tardlk/JellyfinProxy/releases/download/latest/JellyfinProxy.zip",
+        "sourceUrl": "https://gh-proxy.com/https://github.com/tardlk/JellyfinProxy/releases/download/latest/JellyfinProxy.zip",
         "checksum": "",
         "timestamp": "2026-05-29T00:00:00"
       }
