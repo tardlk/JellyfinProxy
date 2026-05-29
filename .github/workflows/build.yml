@@ -1,0 +1,32 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.x'
+      - name: Restore
+        run: dotnet restore
+      - name: Build
+        run: dotnet publish -c Release --no-restore
+      - name: Move latest tag
+        run: |
+          git tag -f latest
+          git push --force origin latest
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: bin/Release/net9.0/publish/JellyfinProxy.dll
+          tag_name: latest
+          name: JellyfinProxy
+          make_latest: true
