@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,6 +5,8 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -13,12 +14,12 @@ namespace JellyfinProxy.Mod
 {
     /// <summary>
     /// 内置本地 HTTP/HTTPS 转发代理，实现 TMDB URL 改写和 IPv4 强制。
-    /// 因为 Jellyfin 的 TMDb 提供者使用 TMDbLib（不走 IHttpClientFactory），只能用代理拦截。
+    /// 使用 TcpListener 而非 HttpListener，确保 HTTPS CONNECT 隧道正确工作。
     /// </summary>
     public class LocalProxyServer : IDisposable
     {
         private readonly int _port;
-        private HttpListener _listener;
+        private TcpListener _listener;
         private CancellationTokenSource _cts;
 
         private HashSet<string> _ipv4Domains = new HashSet<string>();
@@ -30,7 +31,7 @@ namespace JellyfinProxy.Mod
         private static readonly string TmdbApiHost = "api.themoviedb.org";
         private static readonly string TmdbImageHost = "image.tmdb.org";
 
-        public bool IsRunning => _listener?.IsListening ?? false;
+        public bool IsRunning => _listener != null;
         public int Port => _port;
 
         public LocalProxyServer(int port = 57891) => _port = port;
@@ -62,10 +63,9 @@ namespace JellyfinProxy.Mod
         {
             if (IsRunning) return;
             _cts = new CancellationTokenSource();
-            _listener = new HttpListener();
-            _listener.Prefixes.Add($"http://127.0.0.1:{_port}/");
+            _listener = new TcpListener(IPAddress.Loopback, _port);
             _listener.Start();
-            _ = ListenLoop(_cts.Token);
+            _ = AcceptLoop(_cts.Token);
             Plugin.Log.LogInformation("Local proxy started on 127.0.0.1:{Port}", _port);
         }
 
@@ -73,113 +73,144 @@ namespace JellyfinProxy.Mod
         {
             _cts?.Cancel();
             try { _listener?.Stop(); } catch { }
-            _listener?.Close();
             _listener = null;
         }
 
-        private async Task ListenLoop(CancellationToken ct)
+        private async Task AcceptLoop(CancellationToken ct)
         {
             while (!ct.IsCancellationRequested)
             {
                 try
                 {
-                    var ctx = await _listener.GetContextAsync().ConfigureAwait(false);
-                    _ = HandleAsync(ctx, ct);
+                    var client = await _listener.AcceptTcpClientAsync(ct).ConfigureAwait(false);
+                    _ = HandleClientAsync(client, ct);
                 }
-                catch (HttpListenerException) { break; }
-                catch (ObjectDisposedException) { break; }
                 catch (OperationCanceledException) { break; }
+                catch (ObjectDisposedException) { break; }
+                catch { }
             }
         }
 
-        private async Task HandleAsync(HttpListenerContext ctx, CancellationToken ct)
+        private async Task HandleClientAsync(TcpClient client, CancellationToken ct)
         {
             try
             {
-                if (ctx.Request.HttpMethod == "CONNECT")
-                    await HandleConnectAsync(ctx, ct).ConfigureAwait(false);
-                else
-                    await HandleHttpAsync(ctx, ct).ConfigureAwait(false);
+                using (client)
+                using (var stream = client.GetStream())
+                {
+                    var reader = new StreamReader(stream, Encoding.ASCII, false, 4096, true);
+                    var requestLine = await reader.ReadLineAsync().ConfigureAwait(false);
+                    if (string.IsNullOrEmpty(requestLine)) return;
+
+                    var parts = requestLine.Split(' ');
+                    if (parts.Length < 3) return;
+
+                    var method = parts[0];
+                    var target = parts[1];
+
+                    // Read headers (just consume them)
+                    string header;
+                    while (!string.IsNullOrEmpty(header = await reader.ReadLineAsync().ConfigureAwait(false)))
+                    {
+                        if (header.StartsWith("Proxy-Connection:", StringComparison.OrdinalIgnoreCase)) continue;
+                    }
+
+                    if (method == "CONNECT")
+                    {
+                        await HandleConnect(stream, target, ct).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await HandleHttp(stream, method, target, ct).ConfigureAwait(false);
+                    }
+                }
             }
-            catch { try { ctx.Response.StatusCode = 502; ctx.Response.Close(); } catch { } }
+            catch { }
         }
 
-        private async Task HandleHttpAsync(HttpListenerContext ctx, CancellationToken ct)
+        private async Task HandleConnect(NetworkStream clientStream, string target, CancellationToken ct)
         {
-            var req = ctx.Request;
-            var resp = ctx.Response;
-            var targetUrl = RewriteUrl(req.Url);
-            var host = new Uri(targetUrl).Host;
-
-            using var fwd = new HttpRequestMessage(new HttpMethod(req.HttpMethod), targetUrl);
-            foreach (string key in req.Headers)
-            {
-                if (key.Equals("Host", StringComparison.OrdinalIgnoreCase)) continue;
-                if (key.Equals("Connection", StringComparison.OrdinalIgnoreCase)) continue;
-                if (key.Equals("Proxy-Connection", StringComparison.OrdinalIgnoreCase)) continue;
-                try { fwd.Headers.TryAddWithoutValidation(key, req.Headers.GetValues(key)); } catch { }
-            }
-
-            if (req.HasEntityBody)
-            {
-                using var ms = new MemoryStream();
-                await req.InputStream.CopyToAsync(ms, ct).ConfigureAwait(false);
-                fwd.Content = new ByteArrayContent(ms.ToArray());
-                if (req.ContentType != null)
-                    fwd.Content.Headers.TryAddWithoutValidation("Content-Type", req.ContentType);
-            }
-
-            using var handler = CreateHandler(host);
-            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
-            using var fwdResp = await client.SendAsync(fwd, ct).ConfigureAwait(false);
-
-            resp.StatusCode = (int)fwdResp.StatusCode;
-            if (fwdResp.Content?.Headers.ContentType != null)
-                resp.ContentType = fwdResp.Content.Headers.ContentType.ToString();
-            foreach (var h in fwdResp.Headers)
-                try { resp.Headers[h.Key] = string.Join(",", h.Value); } catch { }
-
-            if (fwdResp.Content != null)
-            {
-                var body = await fwdResp.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-                resp.ContentLength64 = body.Length;
-                await resp.OutputStream.WriteAsync(body, 0, body.Length, ct).ConfigureAwait(false);
-            }
-            resp.Close();
-        }
-
-        private async Task HandleConnectAsync(HttpListenerContext ctx, CancellationToken ct)
-        {
-            var parts = ctx.Request.Url.Host.Split(':');
-            var host = RewriteHost(parts[0]);
-            var port = parts.Length > 1 ? int.Parse(parts[1]) : 443;
+            var hostPort = target.Split(':');
+            var host = RewriteHost(hostPort[0]);
+            var port = hostPort.Length > 1 ? int.Parse(hostPort[1]) : 443;
             var useIPv4 = IsIPv4Domain(host);
 
-            if (Plugin.DebugMode && useIPv4)
-                Plugin.Log.LogInformation("LocalProxy CONNECT IPv4: {Host}", host);
+            if (Plugin.DebugMode)
+            {
+                if (host != hostPort[0])
+                    Plugin.Log.LogInformation("CONNECT rewrite: {Old} → {New}", hostPort[0], host);
+                if (useIPv4)
+                    Plugin.Log.LogInformation("CONNECT IPv4: {Host}:{Port}", host, port);
+            }
 
-            Socket sock;
+            Socket targetSocket;
             if (useIPv4)
             {
                 var addrs = await Dns.GetHostAddressesAsync(host, AddressFamily.InterNetwork, ct).ConfigureAwait(false);
-                sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                await sock.ConnectAsync(new IPEndPoint(addrs[0], port), ct).ConfigureAwait(false);
+                if (addrs.Length == 0) throw new InvalidOperationException($"No IPv4 for {host}");
+                targetSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                await targetSocket.ConnectAsync(new IPEndPoint(addrs[0], port), ct).ConfigureAwait(false);
             }
             else
             {
-                sock = new Socket(SocketType.Stream, ProtocolType.Tcp);
-                await sock.ConnectAsync(host, port, ct).ConfigureAwait(false);
+                targetSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+                await targetSocket.ConnectAsync(host, port, ct).ConfigureAwait(false);
             }
 
-            ctx.Response.StatusCode = 200;
-            ctx.Response.StatusDescription = "Connection Established";
-            ctx.Response.Close();
+            // Send 200 to client
+            var resp = Encoding.ASCII.GetBytes("HTTP/1.1 200 Connection Established\r\n\r\n");
+            await clientStream.WriteAsync(resp, 0, resp.Length, ct).ConfigureAwait(false);
+            await clientStream.FlushAsync(ct).ConfigureAwait(false);
 
-            var client = ctx.Request.InputStream;
-            var target = new NetworkStream(sock, ownsSocket: true);
-            var t1 = client.CopyToAsync(target, ct);
-            var t2 = target.CopyToAsync(client, ct);
-            await Task.WhenAny(t1, t2).ConfigureAwait(false);
+            // Bidirectional tunnel
+            using (targetSocket)
+            using (var targetStream = new NetworkStream(targetSocket, ownsSocket: true))
+            {
+                var t1 = clientStream.CopyToAsync(targetStream, ct);
+                var t2 = targetStream.CopyToAsync(clientStream, ct);
+                await Task.WhenAny(t1, t2).ConfigureAwait(false);
+            }
+        }
+
+        private async Task HandleHttp(NetworkStream clientStream, string method, string targetUrl, CancellationToken ct)
+        {
+            var uri = new Uri(targetUrl);
+            var rewrittenUrl = RewriteUrl(uri);
+            var host = new Uri(rewrittenUrl).Host;
+
+            using var fwd = new HttpRequestMessage(new HttpMethod(method), rewrittenUrl);
+
+            using var handler = CreateHandler(host);
+            using var httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
+
+            HttpResponseMessage fwdResp;
+            try
+            {
+                fwdResp = await httpClient.SendAsync(fwd, ct).ConfigureAwait(false);
+            }
+            catch
+            {
+                var err = Encoding.ASCII.GetBytes("HTTP/1.1 502 Bad Gateway\r\n\r\n");
+                await clientStream.WriteAsync(err, 0, err.Length, ct).ConfigureAwait(false);
+                return;
+            }
+
+            var body = await fwdResp.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+            var sb = new StringBuilder();
+            sb.AppendLine($"HTTP/1.1 {(int)fwdResp.StatusCode} {fwdResp.ReasonPhrase}");
+            foreach (var h in fwdResp.Headers)
+                sb.AppendLine($"{h.Key}: {string.Join(",", h.Value)}");
+            foreach (var h in fwdResp.Content.Headers)
+                sb.AppendLine($"{h.Key}: {string.Join(",", h.Value)}");
+            sb.AppendLine($"Content-Length: {body.Length}");
+            sb.AppendLine();
+
+            var headerBytes = Encoding.ASCII.GetBytes(sb.ToString());
+            await clientStream.WriteAsync(headerBytes, 0, headerBytes.Length, ct).ConfigureAwait(false);
+            await clientStream.WriteAsync(body, 0, body.Length, ct).ConfigureAwait(false);
+            await clientStream.FlushAsync(ct).ConfigureAwait(false);
+
+            fwdResp.Dispose();
         }
 
         private SocketsHttpHandler CreateHandler(string host)
