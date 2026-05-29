@@ -66,7 +66,7 @@ namespace JellyfinProxy.Mod
                     sh.ConnectCallback = async (context, ct) =>
                     {
                         var host = context.DnsEndPoint.Host;
-                        var domains = Volatile.Read(ref _ipv4Domains); // 每次请求读最新值
+                        var domains = _ipv4Domains; // 每次请求读最新值
 
                         foreach (var d in domains)
                         {
