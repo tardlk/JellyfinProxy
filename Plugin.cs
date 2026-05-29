@@ -61,6 +61,16 @@ namespace JellyfinProxy
             return Configuration;
         }
 
+        /// <summary>配置变更时自动热更新，无需重启</summary>
+        protected override void OnConfigurationChanged()
+        {
+            base.OnConfigurationChanged();
+            var config = Configuration;
+            DebugMode = config.EnableDebugMode;
+            ApplyConfig(config);
+            Log.LogInformation("Configuration hot-reloaded");
+        }
+
         /// <summary>应用配置并启动/更新本地代理</summary>
         public void ApplyConfig(PluginConfiguration config)
         {
