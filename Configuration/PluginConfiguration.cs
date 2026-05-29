@@ -7,6 +7,8 @@ namespace JellyfinProxy
         // 代理服务器
         public bool ProxyEnabled { get; set; } = false;
         public string ProxyUrl { get; set; } = string.Empty;
+        public string ProxyDomains { get; set; } =
+            "api.themoviedb.org\r\nimage.tmdb.org\r\napi.tmdb.org\r\napi.tvdb.com\r\nartworks.thetvdb.com\r\nwebservice.fanart.tv\r\nassets.fanart.tv";
 
         // 本地代理端口
         public int LocalProxyPort { get; set; } = 57891;

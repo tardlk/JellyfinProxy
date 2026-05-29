@@ -16,17 +16,19 @@
 
                 <form id="JellyfinProxyConfigForm">
                     <fieldset class="verticalSection">
-                        <legend><h3>内置代理</h3></legend>
-                        <div class="fieldDescription" style="margin-bottom:10px;">以下功能通过内置本地代理实现，无需额外安装代理软件。</div>
+                        <legend><h3>选择代理</h3></legend>
                         <div class="checkboxContainer">
                             <label>
                                 <input type="checkbox" is="emby-checkbox" id="ProxyEnabled" />
                                 <span>启用代理服务器</span>
                             </label>
-                            <div class="fieldDescription">开启后所有域名走代理；关闭后仅 TMDB/IPv4 规则生效</div>
+                            <div class="fieldDescription">仅对下方列表中的域名走代理，其余直连</div>
                         </div>
                         <div class="inputContainer">
-                            <input is="emby-input" type="text" id="ProxyUrl" label="外部代理地址" title="格式：http://user:pass@host:port，留空则直连" placeholder="http://192.168.10.10:7890" />
+                            <input is="emby-input" type="text" id="ProxyUrl" label="代理服务器地址" title="格式：http://user:pass@host:port" placeholder="http://192.168.10.10:7890" />
+                        </div>
+                        <div class="inputContainer">
+                            <textarea is="emby-textarea" id="ProxyDomains" label="代理域名列表" title="一行一个，仅列表中域名走代理" rows="5"></textarea>
                         </div>
                     </fieldset>
 
@@ -87,6 +89,7 @@
                     ApiClient.getPluginConfiguration(JellyfinProxyConfig.pluginUniqueId).then(function (config) {
                         document.querySelector('#ProxyEnabled').checked = config.ProxyEnabled || false;
                         document.querySelector('#ProxyUrl').value = config.ProxyUrl || '';
+                        document.querySelector('#ProxyDomains').value = config.ProxyDomains || '';
                         document.querySelector('#EnableAltTmdb').checked = config.EnableAltTmdb || false;
                         document.querySelector('#AltTmdbApiUrl').value = config.AltTmdbApiUrl || '';
                         document.querySelector('#AltTmdbImageUrl').value = config.AltTmdbImageUrl || '';
@@ -103,6 +106,7 @@
                     ApiClient.getPluginConfiguration(JellyfinProxyConfig.pluginUniqueId).then(function (config) {
                         config.ProxyEnabled = document.querySelector('#ProxyEnabled').checked;
                         config.ProxyUrl = document.querySelector('#ProxyUrl').value.trim();
+                        config.ProxyDomains = document.querySelector('#ProxyDomains').value.trim();
                         config.EnableAltTmdb = document.querySelector('#EnableAltTmdb').checked;
                         config.AltTmdbApiUrl = document.querySelector('#AltTmdbApiUrl').value.trim();
                         config.AltTmdbImageUrl = document.querySelector('#AltTmdbImageUrl').value.trim();

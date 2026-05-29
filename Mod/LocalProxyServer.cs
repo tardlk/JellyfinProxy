@@ -23,6 +23,8 @@ namespace JellyfinProxy.Mod
         private Task _listenTask;
 
         private HashSet<string> _ipv4Domains;
+        private HashSet<string> _proxyDomains;
+        private string _proxyUrl;
         private string _tmdbApiSourceHost = "api.themoviedb.org";
         private string _tmdbApiTargetUrl;
         private string _tmdbImageSourceHost = "image.tmdb.org";
@@ -44,9 +46,21 @@ namespace JellyfinProxy.Mod
             _port = port;
         }
 
-        public void Configure(bool enableIPv4, string ipv4Domains,
+        public void Configure(
+            bool enableProxy, string proxyUrl, string proxyDomains,
+            bool enableIPv4, string ipv4Domains,
             bool enableTmdbRewrite, string tmdbApiUrl, string tmdbImageUrl)
         {
+            _proxyUrl = enableProxy && !string.IsNullOrEmpty(proxyUrl)
+                ? proxyUrl.Trim().TrimEnd('/') : null;
+            _proxyDomains = enableProxy && !string.IsNullOrEmpty(proxyDomains)
+                ? new HashSet<string>(
+                    proxyDomains.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(d => d.Trim())
+                        .Where(d => d.Length > 0),
+                    StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>();
+
             _ipv4Domains = enableIPv4 && !string.IsNullOrEmpty(ipv4Domains)
                 ? new HashSet<string>(
                     ipv4Domains.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
@@ -153,6 +167,7 @@ namespace JellyfinProxy.Mod
             // Use IPv4 if target host matches
             var targetHost = new Uri(rewrittenUrl).Host;
             var useIPv4 = IsIPv4Domain(targetHost);
+            var useProxy = IsProxyDomain(targetHost);
 
             using var handler = new SocketsHttpHandler
             {
@@ -170,6 +185,13 @@ namespace JellyfinProxy.Mod
                     await sock.ConnectAsync(new IPEndPoint(addresses[0], ctx.DnsEndPoint.Port), cancelToken).ConfigureAwait(false);
                     return new NetworkStream(sock, ownsSocket: true);
                 };
+            }
+
+            if (useProxy)
+            {
+                handler.Proxy = new WebProxy(_proxyUrl);
+                if (Plugin.Instance.DebugMode)
+                    Plugin.Log.LogInformation("Proxy: {Host} → {Proxy}", targetHost, _proxyUrl);
             }
 
             using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
@@ -269,6 +291,28 @@ namespace JellyfinProxy.Mod
                 if (host.EndsWith(d, StringComparison.OrdinalIgnoreCase))
                     return true;
             return false;
+        }
+
+        private bool IsProxyDomain(string host)
+        {
+            if (_proxyUrl == null || _proxyDomains.Count == 0) return false;
+            foreach (var d in _proxyDomains)
+                if (host.EndsWith(d, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
+        }
+
+        private HttpClient GetForwardClient(string targetHost)
+        {
+            if (!IsProxyDomain(targetHost)) return null;
+
+            var handler = new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                AutomaticDecompression = DecompressionMethods.None,
+                Proxy = new WebProxy(_proxyUrl)
+            };
+            return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
         }
 
         public void Dispose()

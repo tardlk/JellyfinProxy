@@ -66,6 +66,7 @@ namespace JellyfinProxy
         {
             // 配置本地代理
             LocalProxy.Configure(
+                config.ProxyEnabled, config.ProxyUrl, config.ProxyDomains,
                 config.EnableIPv4Only, config.IPv4OnlyDomains,
                 config.EnableAltTmdb, config.AltTmdbApiUrl, config.AltTmdbImageUrl);
 
