@@ -3,14 +3,13 @@
     "guid": "B5C3E8A1-7D4F-4A2B-9E6C-1F3D8A5B2C7E",
     "name": "JellyfinProxy",
     "description": "Jellyfin 网络优化插件：HTTP 选择代理、TMDB 地址替代、强制 IPv4 连接。解决刮削元数据时 TMDB / TVDB / FanArt 的网络连通问题。",
-    "overview": "HTTP 选择性代理插件，仅对指定域名走代理，其余流量直连。",
-    "owner": "tardlk",
+    "overview": "选择代理 / TMDB 地址替代 / 强制 IPv4。内置本地代理，无需额外软件。",
     "category": "General",
     "imageUrl": "https://raw.githubusercontent.com/tardlk/JellyfinProxy/master/Properties/thumb.png",
     "versions": [
       {
         "version": "1.0.0.0",
-        "changelog": "内置本地代理实现 TMDB 改写 + 强制 IPv4",
+        "changelog": "支持 Jellyfin 10.8 ~ 10.11。三功能：选择代理、TMDB 替代、强制 IPv4。",
         "targetAbi": "10.8.0.0",
         "sourceUrl": "https://gh-proxy.com/https://github.com/tardlk/JellyfinProxy/releases/download/latest/JellyfinProxy.zip",
         "checksum": "",
