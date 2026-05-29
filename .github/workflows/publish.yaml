@@ -10,7 +10,6 @@ jobs:
     name: Build & Release
     permissions:
       contents: write
-      workflows: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -21,10 +20,6 @@ jobs:
           dotnet restore JellyfinProxy.csproj --no-cache
           dotnet build -c Release --no-restore JellyfinProxy.csproj
           zip -j JellyfinProxy.zip ./bin/Release/net6.0/JellyfinProxy.dll
-      - name: Move latest tag
-        run: |
-          git tag -f latest
-          git push --force origin latest
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
