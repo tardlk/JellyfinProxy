@@ -12,14 +12,22 @@ namespace JellyfinProxy.Mod
     /// <summary>
     /// 通过 IHttpMessageHandlerBuilderFilter 向 Jellyfin 的所有 IHttpClientFactory 客户端
     /// 注入 TMDB URL 改写 DelegatingHandler 和 IPv4 强制 ConnectCallback。
+    /// 支持热更新：属性由 Plugin 实时刷新，handler 每次都读取最新值。
     /// </summary>
     public class HttpClientFilter : IHttpMessageHandlerBuilderFilter
     {
         private HashSet<string> _ipv4Domains = new HashSet<string>();
-        private string _apiReplacement;
-        private string _imageReplacement;
-        private bool _debug;
 
+        /// <summary>TMDB API 替换地址（热更新由 Plugin 写入）</summary>
+        public string ApiReplacement { get; set; }
+
+        /// <summary>TMDB 图片替换地址（热更新由 Plugin 写入）</summary>
+        public string ImageReplacement { get; set; }
+
+        /// <summary>调试模式</summary>
+        public bool DebugMode { get; set; }
+
+        /// <summary>更新 IPv4 域名和 TMDB 设置</summary>
         public void UpdateConfig(
             bool enableIPv4, string ipv4Domains,
             bool enableTmdb, string tmdbApiUrl, string tmdbImageUrl,
@@ -33,11 +41,11 @@ namespace JellyfinProxy.Mod
                     StringComparer.OrdinalIgnoreCase)
                 : new HashSet<string>();
 
-            _apiReplacement = enableTmdb && !string.IsNullOrEmpty(tmdbApiUrl)
+            ApiReplacement = enableTmdb && !string.IsNullOrEmpty(tmdbApiUrl)
                 ? tmdbApiUrl.Trim().TrimEnd('/') : null;
-            _imageReplacement = enableTmdb && !string.IsNullOrEmpty(tmdbImageUrl)
+            ImageReplacement = enableTmdb && !string.IsNullOrEmpty(tmdbImageUrl)
                 ? tmdbImageUrl.Trim().TrimEnd('/') : null;
-            _debug = debug;
+            DebugMode = debug;
         }
 
         public Action<HttpMessageHandlerBuilder> Configure(Action<HttpMessageHandlerBuilder> next)
@@ -47,23 +55,19 @@ namespace JellyfinProxy.Mod
                 // 先执行原生配置（HappyEyeballs ConnectCallback 等）
                 next(builder);
 
-                // 注入 TMDB URL 改写 handler
-                if (!string.IsNullOrEmpty(_apiReplacement) || !string.IsNullOrEmpty(_imageReplacement))
-                {
-                    builder.AdditionalHandlers.Insert(0,
-                        new TmdbRewritingHandler(_apiReplacement, _imageReplacement, _debug));
-                }
+                // 注入 TMDB URL 改写 handler（动态读取配置）
+                builder.AdditionalHandlers.Insert(0, new TmdbRewritingHandler(this));
 
-                // 包装 ConnectCallback 实现 IPv4 强制
-                if (_ipv4Domains.Count > 0 && builder.PrimaryHandler is SocketsHttpHandler sh)
+                // 包装 ConnectCallback 实现 IPv4 强制（动态读取配置）
+                if (builder.PrimaryHandler is SocketsHttpHandler sh)
                 {
                     var original = sh.ConnectCallback;
-                    var domains = _ipv4Domains;
-                    var debug = _debug;
 
                     sh.ConnectCallback = async (context, ct) =>
                     {
                         var host = context.DnsEndPoint.Host;
+                        var domains = Volatile.Read(ref _ipv4Domains); // 每次请求读最新值
+
                         foreach (var d in domains)
                         {
                             if (!host.EndsWith(d, StringComparison.OrdinalIgnoreCase))
@@ -74,7 +78,7 @@ namespace JellyfinProxy.Mod
                             if (addresses.Length == 0)
                                 throw new InvalidOperationException($"No IPv4 address for {host}");
 
-                            if (debug)
+                            if (DebugMode)
                                 Plugin.Log.LogInformation("IPv4 forced: {Host} → {Address}", host, addresses[0]);
 
                             var sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -83,11 +87,9 @@ namespace JellyfinProxy.Mod
                             return new NetworkStream(sock, ownsSocket: true);
                         }
 
-                        // 不匹配任何 IPv4 域名，走原生回调
                         if (original != null)
                             return await original(context, ct).ConfigureAwait(false);
 
-                        // Fallback: 默认连接
                         var defSock = new Socket(SocketType.Stream, ProtocolType.Tcp);
                         await defSock.ConnectAsync(context.DnsEndPoint, ct).ConfigureAwait(false);
                         return new NetworkStream(defSock, ownsSocket: true);
