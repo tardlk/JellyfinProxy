@@ -38,8 +38,15 @@ namespace JellyfinProxy.Common
         {
             if (_proxyDomains.Count == 0) return null;
             foreach (var d in _proxyDomains)
+            {
                 if (destination.Host.EndsWith(d, StringComparison.OrdinalIgnoreCase))
-                    return _innerProxy.GetProxy(destination);
+                {
+                    var proxyUri = _innerProxy.GetProxy(destination);
+                    if (Plugin.DebugMode)
+                        Plugin.Log.LogInformation("Proxy: {Host} → {Proxy}", destination.Host, proxyUri);
+                    return proxyUri;
+                }
+            }
             return null;
         }
 
