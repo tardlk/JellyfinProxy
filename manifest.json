@@ -2,7 +2,7 @@
   {
     "guid": "B5C3E8A1-7D4F-4A2B-9E6C-1F3D8A5B2C7E",
     "name": "JellyfinProxy",
-    "description": "Jellyfin 网络优化插件：HTTP 选择性代理，解决刮削元数据时 TMDB / TVDB / FanArt 的网络连通问题。",
+    "description": "Jellyfin 网络优化插件：HTTP 选择代理、TMDB 地址替代、强制 IPv4 连接。解决刮削元数据时 TMDB / TVDB / FanArt 的网络连通问题。",
     "overview": "HTTP 选择性代理插件，仅对指定域名走代理，其余流量直连。",
     "owner": "tardlk",
     "category": "General",

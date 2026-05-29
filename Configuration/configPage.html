@@ -6,28 +6,56 @@
 </head>
 <body>
     <div id="JellyfinProxyConfigPage" data-role="page" class="page type-interior pluginConfigurationPage"
-        data-require="emby-input,emby-button,emby-checkbox,emby-textarea">
+        data-require="emby-input,emby-button,emby-checkbox,emby-textarea,emby-select">
         <div data-role="content">
             <div class="content-primary">
                 <div class="verticalSection">
                     <h2 class="sectionTitle">JellyfinProxy</h2>
-                    <p style="color:#888;font-size:13px;">HTTP 选择性代理，修改后需重启 Jellyfin 生效</p>
+                    <p style="color:#888;font-size:13px;">网络优化：选择代理 / TMDB 替代 / 强制 IPv4<br>修改后需重启 Jellyfin 生效</p>
                 </div>
 
                 <form id="JellyfinProxyConfigForm">
                     <fieldset class="verticalSection">
-                        <legend><h3>代理服务器</h3></legend>
+                        <legend><h3>内置代理</h3></legend>
+                        <div class="fieldDescription" style="margin-bottom:10px;">以下功能通过内置本地代理实现，无需额外安装代理软件。</div>
                         <div class="checkboxContainer">
                             <label>
                                 <input type="checkbox" is="emby-checkbox" id="ProxyEnabled" />
                                 <span>启用代理服务器</span>
                             </label>
+                            <div class="fieldDescription">开启后所有域名走代理；关闭后仅 TMDB/IPv4 规则生效</div>
                         </div>
                         <div class="inputContainer">
-                            <input is="emby-input" type="text" id="ProxyUrl" label="代理服务器地址" title="格式：http://user:pass@host:port" />
+                            <input is="emby-input" type="text" id="ProxyUrl" label="外部代理地址" title="格式：http://user:pass@host:port，留空则直连" placeholder="http://192.168.10.10:7890" />
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="verticalSection">
+                        <legend><h3>TMDB 替代</h3></legend>
+                        <div class="checkboxContainer">
+                            <label>
+                                <input type="checkbox" is="emby-checkbox" id="EnableAltTmdb" />
+                                <span>启用 TMDB 替代</span>
+                            </label>
                         </div>
                         <div class="inputContainer">
-                            <textarea is="emby-textarea" id="ProxyDomains" label="代理域名列表" title="一行一个域名，仅列表中域名走代理" rows="5"></textarea>
+                            <input is="emby-input" type="text" id="AltTmdbApiUrl" label="TMDB API 地址" title="替换 api.themoviedb.org" placeholder="https://api.tmdb.org" />
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" type="text" id="AltTmdbImageUrl" label="TMDB 图片地址" title="替换 image.tmdb.org，留空不替换" placeholder="留空则不替换图片地址" />
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="verticalSection">
+                        <legend><h3>强制 IPv4</h3></legend>
+                        <div class="checkboxContainer">
+                            <label>
+                                <input type="checkbox" is="emby-checkbox" id="EnableIPv4Only" />
+                                <span>启用强制 IPv4</span>
+                            </label>
+                        </div>
+                        <div class="inputContainer">
+                            <textarea is="emby-textarea" id="IPv4OnlyDomains" label="IPv4 域名列表" title="一行一个，匹配的域名仅使用 IPv4" rows="3"></textarea>
                         </div>
                     </fieldset>
 
@@ -38,7 +66,6 @@
                                 <input type="checkbox" is="emby-checkbox" id="EnableDebugMode" />
                                 <span>调试模式</span>
                             </label>
-                            <div class="fieldDescription">开启后输出详细的请求日志</div>
                         </div>
                     </fieldset>
 
@@ -60,7 +87,11 @@
                     ApiClient.getPluginConfiguration(JellyfinProxyConfig.pluginUniqueId).then(function (config) {
                         document.querySelector('#ProxyEnabled').checked = config.ProxyEnabled || false;
                         document.querySelector('#ProxyUrl').value = config.ProxyUrl || '';
-                        document.querySelector('#ProxyDomains').value = config.ProxyDomains || '';
+                        document.querySelector('#EnableAltTmdb').checked = config.EnableAltTmdb || false;
+                        document.querySelector('#AltTmdbApiUrl').value = config.AltTmdbApiUrl || '';
+                        document.querySelector('#AltTmdbImageUrl').value = config.AltTmdbImageUrl || '';
+                        document.querySelector('#EnableIPv4Only').checked = config.EnableIPv4Only || false;
+                        document.querySelector('#IPv4OnlyDomains').value = config.IPv4OnlyDomains || '';
                         document.querySelector('#EnableDebugMode').checked = config.EnableDebugMode || false;
                         Dashboard.hideLoadingMsg();
                     });
@@ -72,7 +103,11 @@
                     ApiClient.getPluginConfiguration(JellyfinProxyConfig.pluginUniqueId).then(function (config) {
                         config.ProxyEnabled = document.querySelector('#ProxyEnabled').checked;
                         config.ProxyUrl = document.querySelector('#ProxyUrl').value.trim();
-                        config.ProxyDomains = document.querySelector('#ProxyDomains').value.trim();
+                        config.EnableAltTmdb = document.querySelector('#EnableAltTmdb').checked;
+                        config.AltTmdbApiUrl = document.querySelector('#AltTmdbApiUrl').value.trim();
+                        config.AltTmdbImageUrl = document.querySelector('#AltTmdbImageUrl').value.trim();
+                        config.EnableIPv4Only = document.querySelector('#EnableIPv4Only').checked;
+                        config.IPv4OnlyDomains = document.querySelector('#IPv4OnlyDomains').value.trim();
                         config.EnableDebugMode = document.querySelector('#EnableDebugMode').checked;
                         ApiClient.updatePluginConfiguration(JellyfinProxyConfig.pluginUniqueId, config).then(function (result) {
                             Dashboard.processPluginConfigurationUpdateResult(result);
