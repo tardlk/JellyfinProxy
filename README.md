@@ -11,42 +11,50 @@
   <img src="https://img.shields.io/badge/dependencies-zero-success?style=flat-square" />
 </p>
 
-<p align="center"><b>Jellyfin 网络优化插件</b><br>解决刮削元数据时 TMDB / TVDB / FanArt 的网络连通问题<br>支持 Jellyfin 10.11+</p>
+<p align="center"><b>Jellyfin 网络优化插件</b><br>HTTP 选择性代理，解决刮削元数据时 TMDB / TVDB / FanArt 的网络连通问题<br>支持 Jellyfin 10.11+</p>
 
 ---
 
 ## ✨ 功能
 
-| 功能 | 说明 |
-|------|------|
-| 🌐 选择性代理 | 仅对白名单域名走 HTTP 代理，其余直连 |
-| 🔄 替代 TMDB | 将 TMDB API 和图片请求重定向到自定义地址 |
-| 📡 强制 IPv4 | 对指定域名跳过 IPv6，避免超时 |
+🌐 **选择性代理** — 仅对白名单域名走 HTTP 代理，其余流量直连，不影响内网速度。
+
+默认代理域名：`api.themoviedb.org` / `image.tmdb.org` / `api.tvdb.com` / `fanart.tv` 等。
 
 ---
 
 ## ⚡ 安装
 
-1. 从 Releases 下载 `JellyfinProxy.dll`
-2. 复制到 Jellyfin `data/plugins/JellyfinProxy/`
-3. 重启 Jellyfin
-4. 在 **控制台 → 插件 → JellyfinProxy** 进行配置
+### 方法一：插件仓库安装（推荐）
 
-> ⚠️ 修改配置后需重启 Jellyfin 生效。
+1. Jellyfin 控制台 → 插件 → 仓库 → 添加
+2. 填入仓库地址：
+   ```
+   https://raw.githubusercontent.com/tardlk/JellyfinProxy/master/manifest.json
+   ```
+3. 在插件目录中找到 **JellyfinProxy**，点击安装
+4. 重启 Jellyfin
+
+### 方法二：手动安装
+
+1. 从 [Releases](../../releases) 下载 `JellyfinProxy.zip`
+2. 解压到 Jellyfin 插件目录 `data/plugins/JellyfinProxy/`
+3. 重启 Jellyfin
 
 ---
 
-## 🔧 配置说明
+## 🔧 配置
 
-### 代理服务器
-- **代理服务器地址**：`http://user:pass@host:port`
-- **代理域名列表**：一行一个，默认 TMDB / TVDB / FanArt
+安装后在 **控制台 → 插件 → JellyfinProxy** 进行配置：
 
-### 替代 TMDB
-- 将 `api.themoviedb.org` 和 `image.tmdb.org` 重定向到自建镜像站
+| 配置项 | 说明 |
+|--------|------|
+| 启用代理服务器 | 开关 |
+| 代理服务器地址 | `http://user:pass@host:port` |
+| 代理域名列表 | 一行一个域名，默认已填常用元数据站点 |
+| 调试模式 | 开启后输出详细请求日志 |
 
-### 强制 IPv4
-- 对指定域名仅解析 IPv4，默认 `image.tmdb.org`
+> ⚠️ 修改配置后需重启 Jellyfin 生效。
 
 ---
 
@@ -55,13 +63,13 @@
 ```bash
 git clone https://github.com/tardlk/JellyfinProxy.git
 cd JellyfinProxy
-dotnet publish -c Release
+dotnet build -c Release
 ```
 
-需要 .NET 9 SDK。
+需要 .NET 9 SDK，产物：`bin/Release/net9.0/JellyfinProxy.dll`。
 
 ---
 
 ## 📄 License
 
-MIT
+MIT © [tardlk](https://github.com/tardlk)
