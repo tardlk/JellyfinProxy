@@ -51,24 +51,23 @@ namespace JellyfinProxy
             Log.LogInformation("Plugin is getting loaded.");
             Log.LogInformation("Jellyfin version: {Version}", applicationHost.ApplicationVersionString);
 
-            // 启动本地代理（处理 TMDB 改写 + IPv4 强制）
+            // 启动本地代理
             LocalProxy = new LocalProxyServer(config.LocalProxyPort);
             ApplyConfig(config);
+
+            // 订阅配置变更事件，保存即热更新
+            ConfigurationChanged += (_, _) =>
+            {
+                var newConfig = Configuration;
+                DebugMode = newConfig.EnableDebugMode;
+                ApplyConfig(newConfig);
+                Log.LogInformation("Configuration hot-reloaded");
+            };
         }
 
         public PluginConfiguration GetPluginConfiguration()
         {
             return Configuration;
-        }
-
-        /// <summary>配置变更时自动热更新，无需重启</summary>
-        protected override void OnConfigurationChanged()
-        {
-            base.OnConfigurationChanged();
-            var config = Configuration;
-            DebugMode = config.EnableDebugMode;
-            ApplyConfig(config);
-            Log.LogInformation("Configuration hot-reloaded");
         }
 
         /// <summary>应用配置并启动/更新本地代理</summary>
