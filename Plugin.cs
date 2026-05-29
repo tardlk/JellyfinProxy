@@ -49,6 +49,7 @@ namespace JellyfinProxy
             {
                 ApplyConfig(Configuration);
                 Log.LogInformation("Configuration hot-reloaded");
+                ApplicationHost.NotifyPendingRestart();
             };
         }
 
