@@ -3,6 +3,7 @@ using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
+using Jellyfin.Plugin.TmdbTuner.Api;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -19,7 +20,7 @@ namespace Jellyfin.Plugin.TmdbTuner
         public override string Description => "TmdbTuner - TMDB metadata provider with custom host, proxy and IPv4 force";
 
         public static ILogger Log { get; private set; }
-        public readonly IApplicationHost ApplicationHost;
+        public TmdbApiClient TmdbClient { get; }
 
         public Plugin(
             IApplicationHost applicationHost,
@@ -29,9 +30,27 @@ namespace Jellyfin.Plugin.TmdbTuner
             : base(applicationPaths, xmlSerializer)
         {
             Instance = this;
-            ApplicationHost = applicationHost;
+            TmdbClient = new TmdbApiClient(loggerFactory.CreateLogger("TmdbTuner.Api"));
             Log = loggerFactory.CreateLogger("TmdbTuner");
             Log.LogInformation("Plugin is getting loaded.");
+
+            ApplyConfig(Configuration);
+
+            ConfigurationChanged += (_, _) =>
+            {
+                ApplyConfig(Configuration);
+                Log.LogInformation("Configuration hot-reloaded");
+            };
+        }
+
+        private void ApplyConfig(PluginConfiguration config)
+        {
+            TmdbClient.Configure(
+                config.TmdbHost,
+                config.TmdbApiKey,
+                config.EnableIPv4Only,
+                config.EnableProxy ? config.ProxyUrl : null,
+                config.EnableDebugMode);
         }
 
         public PluginConfiguration GetPluginConfiguration() => Configuration;
