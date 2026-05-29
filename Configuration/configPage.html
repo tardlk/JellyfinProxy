@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>JellyfinProxy 配置</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 20px; max-width: 700px; margin: 0 auto; color: #e0e0e0; background: #101010; }
+        h1 { font-size: 22px; margin-bottom: 4px; }
+        .subtitle { color: #888; font-size: 13px; margin-bottom: 24px; }
+        section { background: #1a1a1a; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; }
+        section h2 { margin: 0 0 12px 0; font-size: 16px; color: #52b54b; }
+        label { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 14px; }
+        label.chk { cursor: pointer; }
+        input[type="text"], textarea { width: 100%; padding: 8px; border: 1px solid #333; border-radius: 4px; background: #222; color: #ddd; font-size: 13px; box-sizing: border-box; }
+        textarea { resize: vertical; font-family: monospace; }
+        .hint { color: #777; font-size: 12px; margin-top: 2px; }
+        .disabled { opacity: 0.4; pointer-events: none; }
+        button {
+            background: #52b54b; color: #fff; border: none; padding: 10px 32px; border-radius: 6px;
+            font-size: 15px; cursor: pointer; margin-top: 8px;
+        }
+        button:hover { background: #43a33d; }
+        .toast { position: fixed; bottom: 20px; right: 20px; background: #52b54b; color: #fff; padding: 10px 20px; border-radius: 6px; display: none; }
+    </style>
+</head>
+<body>
+    <h1>🛰 JellyfinProxy</h1>
+    <p class="subtitle">网络优化插件：选择性代理 / TMDB 替代 / 强制 IPv4<br>修改配置后需重启 Jellyfin 生效。</p>
+
+    <section>
+        <h2>🌐 代理服务器</h2>
+        <label class="chk"><input type="checkbox" id="proxyEnabled"> 启用代理服务器</label>
+        <label>代理服务器地址 <span class="hint">格式：http://user:pass@host:port</span>
+            <input type="text" id="proxyUrl" placeholder="http://127.0.0.1:7890">
+        </label>
+        <label>代理域名列表 <span class="hint">一行一个域名，仅列表中域名走代理</span>
+            <textarea id="proxyDomains" rows="5"></textarea>
+        </label>
+    </section>
+
+    <section>
+        <h2>🔄 替代 TMDB</h2>
+        <label class="chk"><input type="checkbox" id="enableAltTmdb"> 启用替代 TMDB 配置</label>
+        <label>替代 TMDB API 地址
+            <input type="text" id="altTmdbApiUrl" placeholder="https://api.tmdb.org">
+        </label>
+        <label>替代 TMDB 图片地址
+            <input type="text" id="altTmdbImageUrl" placeholder="留空则不改写图片地址">
+        </label>
+    </section>
+
+    <section>
+        <h2>📡 强制 IPv4</h2>
+        <label class="chk"><input type="checkbox" id="enableIPv4Only"> 启用强制 IPv4 连接</label>
+        <label>IPv4 Only 域名列表 <span class="hint">一行一个域名</span>
+            <textarea id="ipv4OnlyDomains" rows="3"></textarea>
+        </label>
+    </section>
+
+    <section>
+        <h2>🔧 调试</h2>
+        <label class="chk"><input type="checkbox" id="enableDebugMode"> 调试模式 <span class="hint">输出详细拦截日志</span></label>
+    </section>
+
+    <button onclick="save()">保存配置</button>
+    <div class="toast" id="toast">✅ 配置已保存，请重启 Jellyfin</div>
+
+    <script>
+        var pluginId = 'B5C3E8A1-7D4F-4A2B-9E6C-1F3D8A5B2C7E';
+
+        function $(id) { return document.getElementById(id); }
+
+        async function load() {
+            try {
+                var cfg = await ApiClient.getPluginConfiguration(pluginId);
+                $('proxyEnabled').checked = cfg.ProxyEnabled || false;
+                $('proxyUrl').value = cfg.ProxyUrl || '';
+                $('proxyDomains').value = cfg.ProxyDomains || '';
+                $('enableAltTmdb').checked = cfg.EnableAltTmdb || false;
+                $('altTmdbApiUrl').value = cfg.AltTmdbApiUrl || '';
+                $('altTmdbImageUrl').value = cfg.AltTmdbImageUrl || '';
+                $('enableIPv4Only').checked = cfg.EnableIPv4Only || false;
+                $('ipv4OnlyDomains').value = cfg.IPv4OnlyDomains || '';
+                $('enableDebugMode').checked = cfg.EnableDebugMode || false;
+                toggle();
+            } catch (e) {
+                console.error('加载配置失败', e);
+            }
+        }
+
+        function toggle() {
+            var pe = $('proxyEnabled').checked;
+            $('proxyUrl').parentElement.classList.toggle('disabled', !pe);
+            $('proxyDomains').parentElement.classList.toggle('disabled', !pe);
+            $('altTmdbApiUrl').parentElement.classList.toggle('disabled', !$('enableAltTmdb').checked);
+            $('altTmdbImageUrl').parentElement.classList.toggle('disabled', !$('enableAltTmdb').checked);
+            $('ipv4OnlyDomains').parentElement.classList.toggle('disabled', !$('enableIPv4Only').checked);
+        }
+
+        ['proxyEnabled','enableAltTmdb','enableIPv4Only'].forEach(function(id) {
+            $(id).addEventListener('change', toggle);
+        });
+
+        async function save() {
+            try {
+                await ApiClient.updatePluginConfiguration(pluginId, {
+                    ProxyEnabled: $('proxyEnabled').checked,
+                    ProxyUrl: $('proxyUrl').value.trim(),
+                    ProxyDomains: $('proxyDomains').value.trim(),
+                    EnableAltTmdb: $('enableAltTmdb').checked,
+                    AltTmdbApiUrl: $('altTmdbApiUrl').value.trim(),
+                    AltTmdbImageUrl: $('altTmdbImageUrl').value.trim(),
+                    EnableIPv4Only: $('enableIPv4Only').checked,
+                    IPv4OnlyDomains: $('ipv4OnlyDomains').value.trim(),
+                    EnableDebugMode: $('enableDebugMode').checked
+                });
+                var t = $('toast');
+                t.style.display = 'block';
+                setTimeout(function() { t.style.display = 'none'; }, 3000);
+            } catch (e) {
+                alert('保存失败: ' + e);
+            }
+        }
+
+        load();
+    </script>
+</body>
+</html>
