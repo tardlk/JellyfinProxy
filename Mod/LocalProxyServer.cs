@@ -103,7 +103,8 @@ namespace JellyfinProxy.Mod
                     var requestLine = await reader.ReadLineAsync().ConfigureAwait(false);
 
                     // Always log incoming requests for debugging
-                    Plugin.Log.LogInformation("Proxy recv: {Line}", requestLine ?? "(null)");
+                    if (Plugin.DebugMode)
+                        Plugin.Log.LogInformation("Proxy recv: {Line}", requestLine ?? "(null)");
 
                     if (string.IsNullOrEmpty(requestLine))
                     {
