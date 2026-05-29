@@ -8,7 +8,6 @@ using JellyfinProxy.Mod;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -27,6 +26,15 @@ namespace JellyfinProxy
         public readonly IApplicationHost ApplicationHost;
         private readonly LocalProxyServer _localProxy = new LocalProxyServer();
         private IWebProxy _savedDefaultProxy;
+
+        /// <summary>插件卸载时清理资源</summary>
+        public override void OnUninstalling()
+        {
+            _localProxy.Dispose();
+            if (_savedDefaultProxy != null)
+                HttpClient.DefaultProxy = _savedDefaultProxy;
+            base.OnUninstalling();
+        }
 
         /// <summary>调试模式（热更新同步）</summary>
         public static bool DebugMode { get; private set; }
@@ -68,7 +76,7 @@ namespace JellyfinProxy
                     config.EnableIPv4Only, config.IPv4OnlyDomains,
                     config.EnableAltTmdb, config.AltTmdbApiUrl, config.AltTmdbImageUrl);
 
-                _savedDefaultProxy = HttpClient.DefaultProxy;
+                    _savedDefaultProxy ??= HttpClient.DefaultProxy;
                 HttpClient.DefaultProxy = new WebProxy("http://127.0.0.1:57891");
                 _localProxy.Start();
             }
@@ -79,7 +87,7 @@ namespace JellyfinProxy
                 if (CommonUtility.TryParseProxyUrl(config.ProxyUrl, out var scheme, out var host, out var port,
                         out var user, out var pass))
                 {
-                    _savedDefaultProxy = HttpClient.DefaultProxy;
+                _savedDefaultProxy ??= HttpClient.DefaultProxy;
                     var proxy = new SelectiveProxy($"{scheme}://{host}:{port}", config.ProxyDomains);
                     if (!string.IsNullOrEmpty(user))
                         proxy.Credentials = new NetworkCredential(user, pass);

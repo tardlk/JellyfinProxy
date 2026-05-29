@@ -7,7 +7,6 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -63,6 +62,7 @@ namespace JellyfinProxy.Mod
         public void Start()
         {
             if (IsRunning) return;
+            _cts?.Dispose();
             _cts = new CancellationTokenSource();
             _listener = new TcpListener(IPAddress.Loopback, _port);
             _listener.Start();
@@ -88,7 +88,7 @@ namespace JellyfinProxy.Mod
                 }
                 catch (OperationCanceledException) { break; }
                 catch (ObjectDisposedException) { break; }
-                catch { }
+                catch (Exception ex) { Plugin.Log.LogWarning("Proxy accept error: {Msg}", ex.Message); }
             }
         }
 
@@ -102,7 +102,6 @@ namespace JellyfinProxy.Mod
                     var reader = new StreamReader(stream, Encoding.ASCII, false, 4096, true);
                     var requestLine = await reader.ReadLineAsync().ConfigureAwait(false);
 
-                    // Always log incoming requests for debugging
                     if (Plugin.DebugMode)
                         Plugin.Log.LogInformation("Proxy recv: {Line}", requestLine ?? "(null)");
 
@@ -124,16 +123,42 @@ namespace JellyfinProxy.Mod
                     var method = parts[0];
                     var target = parts[1];
 
+                    // Read headers
+                    var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    int contentLength = 0;
                     string header;
                     while (!string.IsNullOrEmpty(header = await reader.ReadLineAsync().ConfigureAwait(false)))
                     {
                         if (header.StartsWith("Proxy-Connection:", StringComparison.OrdinalIgnoreCase)) continue;
+                        var colonIdx = header.IndexOf(':');
+                        if (colonIdx > 0)
+                        {
+                            var key = header.Substring(0, colonIdx).Trim();
+                            var val = header.Substring(colonIdx + 1).Trim();
+                            headers[key] = val;
+                            if (key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))
+                                int.TryParse(val, out contentLength);
+                        }
+                    }
+
+                    // Read body if present
+                    byte[] body = null;
+                    if (contentLength > 0)
+                    {
+                        body = new byte[contentLength];
+                        var read = 0;
+                        while (read < contentLength)
+                        {
+                            var n = await stream.ReadAsync(body, read, contentLength - read, ct).ConfigureAwait(false);
+                            if (n == 0) break;
+                            read += n;
+                        }
                     }
 
                     if (method == "CONNECT")
                         await HandleConnect(stream, target, ct).ConfigureAwait(false);
                     else
-                        await HandleHttp(stream, method, target, ct).ConfigureAwait(false);
+                        await HandleHttp(stream, method, target, headers, body, ct).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -146,7 +171,8 @@ namespace JellyfinProxy.Mod
         {
             var hostPort = target.Split(':');
             var host = RewriteHost(hostPort[0]);
-            var port = hostPort.Length > 1 ? int.Parse(hostPort[1]) : 443;
+            var portStr = hostPort.Length > 1 ? hostPort[1] : "443";
+            if (!int.TryParse(portStr, out var port)) port = 443;
             var useIPv4 = IsIPv4Domain(host);
 
             if (Plugin.DebugMode)
@@ -186,13 +212,31 @@ namespace JellyfinProxy.Mod
             }
         }
 
-        private async Task HandleHttp(NetworkStream clientStream, string method, string targetUrl, CancellationToken ct)
+        private async Task HandleHttp(NetworkStream clientStream, string method, string targetUrl,
+            Dictionary<string, string> headers, byte[] body, CancellationToken ct)
         {
             var uri = new Uri(targetUrl);
             var rewrittenUrl = RewriteUrl(uri);
             var host = new Uri(rewrittenUrl).Host;
 
             using var fwd = new HttpRequestMessage(new HttpMethod(method), rewrittenUrl);
+
+            // Copy headers
+            foreach (var kv in headers)
+            {
+                if (kv.Key.Equals("Host", StringComparison.OrdinalIgnoreCase)) continue;
+                if (kv.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase)) continue;
+                if (kv.Key.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)) continue;
+                try { fwd.Headers.TryAddWithoutValidation(kv.Key, kv.Value); } catch { }
+            }
+
+            // Copy body
+            if (body != null && body.Length > 0)
+            {
+                fwd.Content = new ByteArrayContent(body);
+                if (headers.TryGetValue("Content-Type", out var ctVal))
+                    fwd.Content.Headers.TryAddWithoutValidation("Content-Type", ctVal);
+            }
 
             using var handler = CreateHandler(host);
             using var httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
@@ -209,22 +253,23 @@ namespace JellyfinProxy.Mod
                 return;
             }
 
-            var body = await fwdResp.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-            var sb = new StringBuilder();
-            sb.AppendLine($"HTTP/1.1 {(int)fwdResp.StatusCode} {fwdResp.ReasonPhrase}");
-            foreach (var h in fwdResp.Headers)
-                sb.AppendLine($"{h.Key}: {string.Join(",", h.Value)}");
-            foreach (var h in fwdResp.Content.Headers)
-                sb.AppendLine($"{h.Key}: {string.Join(",", h.Value)}");
-            sb.AppendLine($"Content-Length: {body.Length}");
-            sb.AppendLine();
+            using (fwdResp)
+            {
+                var respBody = await fwdResp.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+                var sb = new StringBuilder();
+                sb.AppendLine($"HTTP/1.1 {(int)fwdResp.StatusCode} {fwdResp.ReasonPhrase}");
+                foreach (var h in fwdResp.Headers)
+                    sb.AppendLine($"{h.Key}: {string.Join(",", h.Value)}");
+                foreach (var h in fwdResp.Content.Headers)
+                    sb.AppendLine($"{h.Key}: {string.Join(",", h.Value)}");
+                sb.AppendLine($"Content-Length: {respBody.Length}");
+                sb.AppendLine();
 
-            var headerBytes = Encoding.ASCII.GetBytes(sb.ToString());
-            await clientStream.WriteAsync(headerBytes, 0, headerBytes.Length, ct).ConfigureAwait(false);
-            await clientStream.WriteAsync(body, 0, body.Length, ct).ConfigureAwait(false);
-            await clientStream.FlushAsync(ct).ConfigureAwait(false);
-
-            fwdResp.Dispose();
+                var headerBytes = Encoding.ASCII.GetBytes(sb.ToString());
+                await clientStream.WriteAsync(headerBytes, 0, headerBytes.Length, ct).ConfigureAwait(false);
+                await clientStream.WriteAsync(respBody, 0, respBody.Length, ct).ConfigureAwait(false);
+                await clientStream.FlushAsync(ct).ConfigureAwait(false);
+            }
         }
 
         private SocketsHttpHandler CreateHandler(string host)

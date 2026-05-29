@@ -10,9 +10,6 @@ namespace JellyfinProxy
         public string ProxyDomains { get; set; } =
             "api.themoviedb.org\r\nimage.tmdb.org\r\napi.tmdb.org\r\napi.tvdb.com\r\nartworks.thetvdb.com\r\nwebservice.fanart.tv\r\nassets.fanart.tv";
 
-        // 本地代理端口
-        public int LocalProxyPort { get; set; } = 57891;
-
         // IPv4 强制
         public bool EnableIPv4Only { get; set; } = false;
         public string IPv4OnlyDomains { get; set; } = "image.tmdb.org";
