@@ -12,7 +12,7 @@
         "changelog": "支持 Jellyfin 10.8 ~ 10.11。三功能：选择代理、TMDB 替代、强制 IPv4。",
         "targetAbi": "10.8.0.0",
         "sourceUrl": "https://gh-proxy.com/https://github.com/tardlk/JellyfinProxy/releases/download/latest/JellyfinProxy.zip",
-        "checksum": "de79532659ba48f24f2765edf850a7c4",
+        "checksum": "185fbe5b614cd9ac2bee76528f85dba2",
         "timestamp": "2026-05-29T00:00:00"
       }
     ]
