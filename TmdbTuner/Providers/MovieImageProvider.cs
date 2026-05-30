@@ -17,11 +17,14 @@ namespace Jellyfin.Plugin.TmdbTuner.Providers
     {
         private TmdbApiClient Tmdb => Plugin.Instance.TmdbClient;
 
+        private readonly HttpClient _httpClient;
+
         public string Name => "TmdbTuner";
 
         public MovieImageProvider()
         {
-            // Parameterless constructor
+            var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All };
+            _httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
         }
 
         public bool Supports(BaseItem item) => item is Movie;
@@ -95,11 +98,9 @@ namespace Jellyfin.Plugin.TmdbTuner.Providers
             return results;
         }
 
-        public Task<HttpResponseMessage> GetImageResponse(string url, CancellationToken cancellationToken)
+        public async Task<HttpResponseMessage> GetImageResponse(string url, CancellationToken cancellationToken)
         {
-            // Jellyfin will download the image from the URL we returned.
-            // Since the URL is already rewritten to the custom host, we don't need to do anything special.
-            return Task.FromResult<HttpResponseMessage>(null);
+            return await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
         }
     }
 }
