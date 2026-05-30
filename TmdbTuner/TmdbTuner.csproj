@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <RootNamespace>Jellyfin.Plugin.TmdbTuner</RootNamespace>
-    <AssemblyName>Jellyfin.Plugin.TmdbTuner</AssemblyName>
+    <AssemblyName>TmdbTuner</AssemblyName>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
     <LangVersion>10.0</LangVersion>

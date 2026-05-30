@@ -70,7 +70,7 @@ namespace Jellyfin.Plugin.TmdbTuner
         public Stream GetThumbImage()
         {
             return GetType().Assembly.GetManifestResourceStream(
-                "Jellyfin.Plugin.TmdbTuner.Properties.thumb.png");
+                "TmdbTuner.Properties.thumb.png");
         }
     }
 }

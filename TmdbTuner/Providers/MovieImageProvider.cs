@@ -11,6 +11,7 @@ using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Providers;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.TmdbTuner.Providers
 {
@@ -26,6 +27,12 @@ namespace Jellyfin.Plugin.TmdbTuner.Providers
         {
             var handler = new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All };
             _httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
+        }
+
+        // ReSharper disable once UnusedParameter.Local
+        public MovieImageProvider(ILoggerFactory loggerFactory) : this()
+        {
+            // DI constructor
         }
 
         public bool Supports(BaseItem item) => item is Movie;

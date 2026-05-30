@@ -23,7 +23,13 @@ namespace Jellyfin.Plugin.TmdbTuner.Providers
 
         public MovieProvider()
         {
-            // Parameterless constructor - providers are auto-discovered by Jellyfin
+            // Parameterless for Activator.CreateInstance fallback
+        }
+
+        // ReSharper disable once UnusedParameter.Local
+        public MovieProvider(ILoggerFactory loggerFactory) : this()
+        {
+            // DI constructor - preferred when ServiceProvider is available
         }
 
         public async Task<MetadataResult<Movie>> GetMetadata(MovieInfo info, CancellationToken cancellationToken)
