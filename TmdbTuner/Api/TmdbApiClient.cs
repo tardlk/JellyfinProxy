@@ -58,8 +58,10 @@ namespace Jellyfin.Plugin.TmdbTuner.Api
         public string RewriteImageUrl(string url, string imageHost)
         {
             if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(imageHost)) return url;
-            return url.Replace("https://image.tmdb.org", imageHost.Trim().TrimEnd('/'))
-                      .Replace("http://image.tmdb.org", imageHost.Trim().TrimEnd('/'));
+            if (!imageHost.StartsWith("https://") && !imageHost.StartsWith("http://")) return url;
+            var host = imageHost.Trim().TrimEnd('/');
+            return url.Replace("https://image.tmdb.org", host)
+                      .Replace("http://image.tmdb.org", host);
         }
 
         public void Dispose()
